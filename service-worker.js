@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wsl-summary-v14-auto-save';
+const CACHE_NAME = 'wsl-summary-v15-no-machine-setup';
 const FILES = ['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', event => {
   self.skipWaiting();

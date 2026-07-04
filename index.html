@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>WSL Summary Report V14 Auto Save Excel Entry</title>
+<title>WSL Summary Report V15 Auto Save Excel Entry</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WSL Summary">
@@ -20,7 +20,7 @@ button{cursor:pointer}.btn{border:0;border-radius:12px;padding:11px 13px;font-we
 </style>
 </head>
 <body>
-<header><h1>WSL Summary Report V14</h1><div class="sub">Auto-save Excel-like entry + Settings controlled columns + KPI + Report</div></header>
+<header><h1>WSL Summary Report V15</h1><div class="sub">Auto-save Excel-like entry + Settings controlled columns + KPI + Report</div></header>
 <nav class="tabs">
 <button class="tabbtn active" data-tab="entry" onclick="showTab('entry')">1. New Production Record</button>
 <button class="tabbtn" data-tab="kpi" onclick="showTab('kpi')">2. Summary Filter & KPI</button>
@@ -33,15 +33,13 @@ button{cursor:pointer}.btn{border:0;border-radius:12px;padding:11px 13px;font-we
 </section>
 <section id="kpi" class="tab"><div class="card"><h2>Summary Filter</h2><div class="grid3"><div><label>From</label><input id="fFrom" type="date" onchange="renderAll()"></div><div><label>To</label><input id="fTo" type="date" onchange="renderAll()"></div><div><label>Line</label><select id="fLine" onchange="renderAll()"><option>All</option><option>WL1</option><option>WL2</option></select></div><div><label>Supplier / Material Sources</label><div id="fSourceList" class="sourceBox"></div><div class="row" style="margin-top:8px"><button class="btn light" onclick="selectAllSources()">All</button><button class="btn light" onclick="clearSourceSelection()">Clear</button></div></div></div><div class="muted" style="margin-top:8px">If one row mixes special custom data, KPI still follows Loaded KG / FG KG / Reject KG columns.</div></div><div class="card"><h2>KPI Summary</h2><div class="kpis" id="kpiCards"></div></div><div class="card"><h2>Machine Reject Summary</h2><div class="tablewrap"><table id="machineSummary" class="sheet"></table></div></div></section>
 <section id="report" class="tab"><div class="card"><h2>Report Filter</h2><div class="grid3"><div><label>From</label><input id="rFrom" type="date" onchange="renderAll()"></div><div><label>To</label><input id="rTo" type="date" onchange="renderAll()"></div><div><label>Line</label><select id="rLine" onchange="renderAll()"><option>All</option><option>WL1</option><option>WL2</option></select></div><div><label>Shift</label><select id="rShift" onchange="renderAll()"><option>All</option><option>Day</option><option>Night</option></select></div><div><label>Search</label><input id="rSearch" placeholder="Supplier / material / machine / remark..." oninput="renderAll()"></div><div><label>Action</label><button class="btn light" onclick="resetReportFilter()">Reset Filter</button></div></div></div><div class="card"><h2>Report</h2><p class="row"><button class="btn" onclick="exportCsv()">Export CSV</button><button class="btn danger" onclick="deleteAll()">Delete All Records</button></p><div class="tablewrap"><table id="reportTable" class="sheet"></table></div></div></section>
-<section id="settings" class="tab"><div class="card"><h2>Entry Sheet Column Setup</h2><div class="grid3"><div><label>New Column Name</label><input id="newColLabel" placeholder="e.g. Moisture % / QC Status"></div><div><label>Column Type</label><select id="newColType"><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option></select></div><div><label>Action</label><button class="btn light" onclick="addCustomColumn()">+ Add Column</button></div></div><p class="muted">关闭 checkbox = 该 column 不会出现在 New Production Record。除了 Date / Shift / Line 固定锁定以外，其余 column 名字、顺序、增减都完全跟这里一致。KPI 会读取 Loaded KG / FG Output KG / Operators / Run Hours；Reject 开头并且是 number 的 column 会进入 Machine Reject Summary。</p><div id="columnList" class="sourceBox"></div></div></section>
+<section id="settings" class="tab"><div class="card"><h2>Entry Sheet Column Setup</h2><div class="grid3"><div><label>New Column Name</label><input id="newColLabel" placeholder="e.g. Moisture % / QC Status"></div><div><label>Column Type</label><select id="newColType"><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option></select></div><div><label>Action</label><button class="btn light" onclick="addCustomColumn()">+ Add Column</button></div></div><p class="muted">关闭 checkbox = 该 column 不会出现在 New Production Record。除了 Date / Shift / Line 固定锁定以外，其余 column 名字、顺序、增减都完全跟这里一致。KPI 会读取 Loaded KG / FG Output KG / Operators / Run Hours；Reject 开头并且是 number 的 column 会进入 Machine Reject Summary；已经完全取消旧的机器 Reject 设置。</p><div id="columnList" class="sourceBox"></div></div></section>
 </main>
 <script>
 const KEY='wsl_summary_report_v3_records';
-const MACHINE_KEY='wsl_summary_report_machine_names_v1';
 const COL_KEY='wsl_summary_report_columns_v14';
 const DRAFT_KEY='wsl_summary_report_sheet_draft_v14';
 let records=JSON.parse(localStorage.getItem(KEY)||'[]');
-let legacyMachineNames=JSON.parse(localStorage.getItem(MACHINE_KEY)||'["NIR","AI","CS","Aging","PVC Sorter","Manual Picking","Metal"]');
 const defaultColumns=[
  {key:'date',label:'Date',type:'date',role:'date',enabled:true,locked:true},
  {key:'shift',label:'Shift',type:'select',options:['Day','Night'],role:'shift',enabled:true,locked:true},
@@ -53,7 +51,13 @@ const defaultColumns=[
  {key:'operators',label:'Operators',type:'number',role:'operators',enabled:true},
  {key:'hours',label:'Run Hours',type:'number',role:'hours',enabled:true},
  {key:'remarks',label:'Remarks',type:'text',role:'remarks',enabled:true},
- ...legacyMachineNames.map(m=>({key:'reject__'+colSafeStatic(m),label:'Reject - '+m+' KG',type:'number',role:'rejectMachine',machine:m,enabled:true}))
+ {key:'reject__nir',label:'Reject - NIR KG',type:'number',role:'rejectMachine',machine:'NIR',enabled:true},
+ {key:'reject__ai',label:'Reject - AI KG',type:'number',role:'rejectMachine',machine:'AI',enabled:true},
+ {key:'reject__cs',label:'Reject - CS KG',type:'number',role:'rejectMachine',machine:'CS',enabled:true},
+ {key:'reject__aging',label:'Reject - Aging KG',type:'number',role:'rejectMachine',machine:'Aging',enabled:true},
+ {key:'reject__pvc_sorter',label:'Reject - PVC Sorter KG',type:'number',role:'rejectMachine',machine:'PVC Sorter',enabled:true},
+ {key:'reject__manual_picking',label:'Reject - Manual Picking KG',type:'number',role:'rejectMachine',machine:'Manual Picking',enabled:true},
+ {key:'reject__metal',label:'Reject - Metal KG',type:'number',role:'rejectMachine',machine:'Metal',enabled:true}
 ];
 let columns=JSON.parse(localStorage.getItem(COL_KEY)||localStorage.getItem('wsl_summary_report_columns_v13')||'null')||defaultColumns;
 function today(){return new Date().toISOString().slice(0,10)}
@@ -62,8 +66,8 @@ function escapeHtml(s){return String(s??'').replaceAll('&','&amp;').replaceAll('
 function colSafeStatic(s){return String(s||'custom').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')}
 function colSafe(s){return colSafeStatic(s)+'_'+Date.now().toString(36)}
 function ensureFixedColumns(){['date','shift','line'].forEach(k=>{let d=defaultColumns.find(x=>x.key===k);let c=columns.find(x=>x.key===k);if(!c)columns.unshift({...d});else{c.enabled=true;c.locked=true;c.label=d.label;c.type=d.type;c.role=d.role;c.options=d.options}})}
-function migrateRejectColumns(){legacyMachineNames.forEach(m=>{let label='Reject - '+m+' KG';if(!columns.some(c=>c.label===label||c.machine===m)){columns.push({key:'reject__'+colSafeStatic(m),label,type:'number',role:'rejectMachine',machine:m,enabled:true})}})}
-ensureFixedColumns();migrateRejectColumns();
+function removeOldMachineRejectSetup(){localStorage.removeItem('wsl_summary_report_machine_names_v1');}
+removeOldMachineRejectSetup();ensureFixedColumns();
 function saveRecords(){localStorage.setItem(KEY,JSON.stringify(records))}
 function saveColumns(){ensureFixedColumns();localStorage.setItem(COL_KEY,JSON.stringify(columns));renderColumnList();renderEntrySheet();renderReport();renderMachineSummary()}
 function allEntryColumns(){return columns.filter(c=>c.enabled)}
@@ -103,7 +107,7 @@ function resetReportFilter(){rFrom.value='';rTo.value='';rLine.value='All';rShif
 function renderReport(){let rows=reportFiltered().map(r=>{let loaded=(r.materials||[]).reduce((s,m)=>s+n(m.kg),0);let y=loaded?n(r.fg)/loaded*100:null;let e=(n(r.operators)*n(r.hours))?n(r.fg)/(n(r.operators)*n(r.hours)):null;let mats=(r.materials||[]).map(m=>`${escapeHtml(m.type)}: ${escapeHtml(m.name)} ${fmt(m.kg)}kg`).join('<br>');let rejs=(r.rejects||[]).map(x=>`${escapeHtml(x.machine)}: ${fmt(x.kg)}kg`).join('<br>');let custom=r.custom?Object.entries(r.custom).map(([k,v])=>`${escapeHtml(k)}: ${escapeHtml(v)}`).join('<br>'):'';return`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.shift)}</td><td>${escapeHtml(r.line)}</td><td class=num>${fmt(loaded)}</td><td class=num>${fmt(r.fg)}</td><td>${y==null?'-':fmt(y)+'%'}</td><td>${e==null?'-':fmt(e)}</td><td>${mats}</td><td>${rejs}</td><td>${custom}</td><td>${escapeHtml(r.remarks||'')}</td><td><button onclick="delRec(${r.id})">Delete</button></td></tr>`}).join('');reportTable.innerHTML='<tr><th>Date</th><th>Shift</th><th>Line</th><th>Loaded KG</th><th>FG KG</th><th>Yield</th><th>Efficiency</th><th>Materials</th><th>Machine Reject</th><th>Custom Columns</th><th>Remarks</th><th>Action</th></tr>'+rows}
 function delRec(id){if(confirm('Delete this record?')){records=records.filter(r=>r.id!==id);saveRecords();renderAll()}}
 function deleteAll(){if(confirm('Delete ALL records?')){records=[];saveRecords();renderAll()}}
-function exportCsv(){let rows=[['Date','Shift','Line','LoadedKG','FGKG','Yield%','EfficiencyKGPerPersonHour','Materials','MachineRejects','Custom','Remarks']];reportFiltered().forEach(r=>{let loaded=(r.materials||[]).reduce((s,m)=>s+n(m.kg),0);let y=loaded?n(r.fg)/loaded*100:'';let e=(n(r.operators)*n(r.hours))?n(r.fg)/(n(r.operators)*n(r.hours)):'';rows.push([r.date,r.shift,r.line,loaded,r.fg,y,e,(r.materials||[]).map(m=>`${m.type}:${m.name}:${m.kg}`).join('|'),(r.rejects||[]).map(x=>`${x.machine}:${x.kg}`).join('|'),r.custom?JSON.stringify(r.custom):'',r.remarks])});let csv=rows.map(r=>r.map(c=>'"'+String(c??'').replaceAll('"','""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='wsl_summary_report_v14.csv';a.click()}
+function exportCsv(){let rows=[['Date','Shift','Line','LoadedKG','FGKG','Yield%','EfficiencyKGPerPersonHour','Materials','MachineRejects','Custom','Remarks']];reportFiltered().forEach(r=>{let loaded=(r.materials||[]).reduce((s,m)=>s+n(m.kg),0);let y=loaded?n(r.fg)/loaded*100:'';let e=(n(r.operators)*n(r.hours))?n(r.fg)/(n(r.operators)*n(r.hours)):'';rows.push([r.date,r.shift,r.line,loaded,r.fg,y,e,(r.materials||[]).map(m=>`${m.type}:${m.name}:${m.kg}`).join('|'),(r.rejects||[]).map(x=>`${x.machine}:${x.kg}`).join('|'),r.custom?JSON.stringify(r.custom):'',r.remarks])});let csv=rows.map(r=>r.map(c=>'"'+String(c??'').replaceAll('"','""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='wsl_summary_report_v15.csv';a.click()}
 function renderAll(){renderEntrySheet();renderColumnList();updateSourceOptions();renderKpi();renderMachineSummary();renderReport()}
 if(document.getElementById('fFrom')){fFrom.value=today();fTo.value=today();rFrom.value='';rTo.value=''}
 renderAll();if('serviceWorker'in navigator)navigator.serviceWorker.register('service-worker.js');
